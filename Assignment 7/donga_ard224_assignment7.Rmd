@@ -1,0 +1,91 @@
+---
+title: "Donga_ard224_assignment7"
+author: "Rohin Donga"
+date: "04/17/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+#1)
+As part of the data cleaning process, I extracted the table from the HTML file using the "nodes" feature. The first table in the file contained data for the current day, so I selected it and removed any rows with missing values in the "X" column. Then, I removed all commas and plus signs from the remaining data, replaced any remaining blank cells or NAs with a value of zero, and selected only the columns for country, total cases, new cases, total deaths, and new deaths. I also renamed the "country" column for easier use and converted the last four columns to a numeric data type.
+
+```{r}
+library(tidyverse)
+library(rvest)
+url <- "https://www.worldometers.info/coronavirus"
+covid_tables <- url %>% read_html() %>% html_nodes("table") %>% html_table(fill = TRUE)
+covid_today <- as.data.frame(covid_tables[1])
+covid_today2 <- covid_today %>% filter(!is.na(X.))
+covid_today3 <- covid_today2 %>% mutate_all(funs(str_replace_all(.,",","")))
+covid_today4 <- covid_today3 %>% mutate_all(funs(str_replace_all(.,"\\+","")))
+covid_today4[covid_today4 == ''] <- 0
+covid_today4[is.na(covid_today4)] <- 0
+final_df <- covid_today4 %>% select('Country.Other', 'TotalCases', 'NewCases', 'TotalDeaths', 'NewDeaths')
+final_df <- rename(final_df, 'Country' = 'Country.Other')
+final_df[2:5] <- lapply(final_df[2:5], as.numeric)
+
+```
+
+#2) 
+After obtaining the cleaned dataframe, I extracted only the "country" and "new cases" columns, sorted it in descending order by the "new cases" column, and selected the top 10 entries. Note that this selection is limited to countries where it is already later in the day than the US because I performed this analysis in the morning. Finally, I saved this subset of data to a new dataframe.
+
+```{r}
+top10 <- final_df %>% select('Country','NewCases') %>% arrange(desc(NewCases)) %>% head(10)
+top10
+```
+
+#3) 
+To generate a bar chart, I used the ggplot package and applied the reorder function within the aes function to rearrange the x-axis based on a specific variable. I then used the geom_bar function, specifying the "stat" parameter as "identity" to ensure that the height of each bar corresponds to its value in the data. Finally, I customized the plot as needed, including axis labels and other formatting options.
+```{r}
+top10 %>% ggplot(aes(reorder(Country, +NewCases), NewCases)) + geom_bar(stat = 'identity') + xlab('Country') + ylab('New Cases') + ggtitle('New Covid Cases 3/28/22') + theme(plot.title = element_text(size = 10)) + theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Problem 2
+
+#1)
+```{r}
+apikey <- '296ffef85d2d4d05b4dc84455922af0d'
+```
+
+#2) 
+By filtering for Italian cuisine recipes that have no more than 30g of carbs and replacing any values exceeding this limit with 100, I identified a total of 93 recipes that met these criteria.
+
+```{r pressure}
+library(httr)
+library(curl) 
+library(jsonlite)
+url <- "https://api.spoonacular.com/recipes/complexSearch?apiKey=296ffef85d2d4d05b4dc84455922af0d&cuisine=Italian&maxCarbs=30&number=100"
+recipe <- url %>% fromJSON()
+length(recipe$results$id)
+```
+
+To extract the recipe IDs and their corresponding carb amounts from the API call, I separated these pieces of information into two different variables. I did this because I needed to use a for loop to create a new column containing the amount of carbs for each recipe. Once I had done this, I combined the two variables into a single dataframe and sorted the results as needed.
+
+```{r}
+recipescol <- as.tibble(recipe$results) %>% select(id, title)
+nutrient_list <- recipe$results$nutrition$nutrients
+carb_list <- c()
+for (i in 1:length(nutrient_list)) {
+  carb_list[i] = nutrient_list[[i]]$amount
+}
+carb_col <- as.tibble(carb_list)
+low_carb_df <- bind_cols(recipescol, carb_col)
+low_carb_df <- rename(low_carb_df, 'recipe' = 'title', 'carbs' = 'value')
+low_carb_df %>% arrange(carbs) %>% head(10)
+```
+
+#3) 
+To obtain wine recommendations, I made an API call specifying the search criteria to include only Riesling wines with a maximum price of $50, and to return a maximum of ten results. Once I received the recommended wines from the API, I converted the data into a tibble and selected only the columns for wine ID, title, and price.
+
+```{r}
+url2 <- "https://api.spoonacular.com/food/wine/recommendation?apiKey=296ffef85d2d4d05b4dc84455922af0d&wine=Riesling&maxPrice=50&number=10"
+wines <- url2 %>% fromJSON()
+rieslings <- as.tibble(wines$recommendedWines) %>% select(id, title, price)
+rieslings
+```
+
