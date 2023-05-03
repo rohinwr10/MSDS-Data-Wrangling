@@ -1,0 +1,129 @@
+---
+title: "donga_ard224_assignment3"
+author: "Rohin Donga"
+date: "2/13/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+```{r cars}
+library(tidyverse)
+library(Lahman)
+master_table <- Lahman::People
+master_group <- master_table %>% group_by(birthYear) %>% count(birthYear, nameFirst) %>% mutate(prop = n/sum(n))
+master_group
+
+#Loaded the tidyverse and Lahman packages, then imported the Master table and converted it into a dataframe. Next, I grouped the Master table by birth year and obtained the number of names for each birth year. Finally, I created a new column named "prop" by calculating the proportion of names for each birth year, which is obtained by dividing the number of names by the sum of all names.
+```
+
+## Problem 2
+
+```{r}
+master_group %>% filter(str_detect(nameFirst, "^Y"))
+
+#Applied a regular expression (regex) filter to select only the rows in a dataset where the first name of the individual starts with the letter "Y".
+```
+
+##Problem 3
+
+```{r}
+master_group %>% filter(str_detect(nameFirst, "[aeiou]{3}"))
+
+#Used a bracketed regular expression (regex) filter to select only the rows in a dataset that contain vowels. Additionally, I added "{3}" to the regex pattern to specify that the selected rows must have at least three consecutive vowels in their content.
+```
+
+##Problem 4
+
+```{r}
+library(lubridate)
+master_table2 <- master_table %>% mutate(birthYear2 = year(birthDate))
+
+#Created a new table by extracting the year from the "birthDate" column of an existing dataset and stored it in a new column named "birthYear2".
+```
+
+#Number of NAs in birthYear
+
+```{r}
+master_table2 %>% filter(is.na(birthYear)) %>% count(birthYear) %>% select(n)
+
+#Filter by na values, get count and select as n
+```
+
+114 NAs in birthYear
+
+#Number of NAs in birthYear2
+
+```{r}
+master_table2 %>% filter(is.na(birthYear2)) %>% count(birthYear2) %>% select(n)
+
+#Filter by na values, get count and select as n
+```
+
+423 NAs in birthYear2 
+
+#Number of NAs in birthYear and birthYear2
+
+```{r}
+master_table2 %>% filter(is.na(birthYear) & is.na(birthYear2)) %>% count(birthYear) %>% select(n)
+
+#Filter by na values in both columns, get count and select as n
+```
+
+114 NAs in birthYear and birthYear2
+
+#Check for matching cases among entries with no NA for either birthYear or birthYear2
+
+```{r}
+nona_master_table <- master_table2 %>% filter(!is.na(birthYear) & !is.na(birthYear2)) 
+nona_master_table %>% nrow()
+
+#filter by both columns not being na, select the number of rows to get the total entries
+```
+
+19670 rows for no NAs in either column
+
+```{r}
+nona_master_table %>% filter(birthYear == birthYear2) %>% nrow()
+
+#filter by birthYear equaling birthYear2, get number of rows
+```
+
+19670 rows where the year is the same in both columns
+
+All the remaining cases match!
+
+##Problem 5
+
+```{r}
+joined_table <- inner_join(master_table, Lahman::Fielding, by="playerID")
+career_games <- joined_table %>% group_by(playerID, nameFirst, nameLast, nameGiven) %>% summarise(G = sum(G))
+
+#perform an inner join on the Master/Fielding tables, obtain desired table by selecting playerID, nameFirst, nameLast and nameGiven, then summarise games by the sum of games over this grouping
+```
+
+##Problem 6
+
+```{r}
+career_games <- career_games %>% mutate(fullname = paste(nameFirst, nameLast, " "))
+
+#Used paste command to paste the first and last names together, separated by a space
+```
+
+##Problem 7
+
+```{r}
+five_most_popular_names <- career_games %>% filter(G >= 500) %>% group_by(nameFirst) %>% count(nameFirst) %>% arrange(desc(n)) %>% head(5)
+five_most_popular_names
+#First, filter for players who played at least 500 games, then group by + count first names, arrange in descending order, and obtain the first five
+```
+
+```{r}
+master_group %>% filter(nameFirst %in% five_most_popular_names$nameFirst) %>% ggplot(aes(birthYear,n)) + ggtitle("MLB First Names over time") + ylab("Frequency") + theme(plot.title = element_text(size=10, hjust = 0.5)) + geom_path(aes(colour = nameFirst))
+```
+
+
