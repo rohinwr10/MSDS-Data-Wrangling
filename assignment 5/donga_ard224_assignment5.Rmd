@@ -1,0 +1,139 @@
+---
+title: "donga_ard224_assignment5"
+author: "Rohin Donga"
+date: "04/02/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r}
+library(tidyverse)
+```
+
+# PROBLEM 1
+## Q1
+```{r, P1 Q1}
+df1 <- readr::read_csv("https://raw.githubusercontent.com/jennybc/lotr-tidy/master/data/The_Fellowship_Of_The_Ring.csv")
+# df1
+df2 <-  readr::read_csv("https://raw.githubusercontent.com/jennybc/lotr-tidy/master/data/The_Two_Towers.csv")
+df3 <-  readr::read_csv("https://raw.githubusercontent.com/jennybc/lotr-tidy/master/data/The_Return_Of_The_King.csv")
+
+
+#To merge the rows of the dataframes into a single dataframe, we can use the 'rbind' function
+combined_df <- rbind(df1,df2,df3)
+head(combined_df)
+
+```
+
+## Q2
+```{r, P1 Q2}
+
+tidy_df <- combined_df %>% pivot_longer(c("Female","Male"), names_to = "gender", values_to = "words")
+
+head(tidy_df)
+
+```
+
+## Q3A
+```{r,P1 Q3 A}
+
+words_spoken_in_each_movie <- tidy_df %>% group_by(Film) %>% summarise(words=sum(words))
+
+words_spoken_in_each_movie
+
+```
+
+## Q3B
+```{r,P1 Q3 B}
+
+total_words_spoken_by_each_gender <- tidy_df %>% group_by(gender) %>% summarise(words=sum(words))
+
+total_words_spoken_by_each_gender
+
+```
+
+## Q3C
+```{r,P1 Q3 C}
+
+words_by_race <- tidy_df%>% group_by(Race) %>% summarise(words=sum(words))
+
+words_by_race
+
+```
+
+## Q4
+```{r,P1 Q4}
+
+by_race_film<-tidy_df %>% group_by(Race) %>% mutate("total_words_byrace"=sum(words)) %>% select('Film','Race','total_words_byrace')
+
+by_race_film <- unique(data.frame(by_race_film))
+
+head(by_race_film)
+
+```
+
+
+
+
+
+
+## PROBLEM 2
+
+
+```{r}
+
+library(gapminder)
+library(broom)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tidyverse)
+
+```
+
+## Q1
+```{r,P2 Q1}
+
+gm_country<-gapminder %>% group_by(country) %>% do(glance(arima(.$lifeExp,order=c(0,0,1)))) %>% select(AIC,BIC)
+
+head(gm_country)
+
+gm_country %>% ggplot(aes(AIC,BIC))+geom_point()+ggtitle("AIC Verus BIC")+theme(plot.title = (element_text(size=15, hjust = 0.5)))
+
+```
+
+It is clear from the graph that both AIC and BIC values are increasing and exhibit a linear correlation.
+
+## Q2
+```{r,P2 Q2}
+
+gm_order1<-gapminder %>% group_by(country) %>% do(glance(arima(.$lifeExp,order=c(0,0,1)))) %>% ungroup() %>% select('Arima1'=AIC)
+
+gm_order2<-gapminder %>% group_by(country) %>% do(glance(arima(.$lifeExp,order=c(0,0,2)))) %>% ungroup() %>% select('Arima2'=AIC)
+
+gm_order3<-gapminder %>% group_by(country) %>% do(glance(arima(.$lifeExp,order=c(0,0,3)))) %>% ungroup() %>% select('Arima3'=AIC)
+
+gm_order4<-gapminder %>% group_by(country) %>% do(glance(arima(.$lifeExp,order=c(0,1,0)))) %>% ungroup() %>% select('Arima4'=AIC)
+
+gm_order5<-gapminder %>% group_by(country) %>% do(glance(arima(.$lifeExp,order=c(0,1,1)))) %>% ungroup() %>% select('Arima5'=AIC)
+
+best_order_model <- tibble(gm_order1, gm_order2, gm_order3, gm_order4, gm_order5)
+
+ggplot(stack(best_order_model), aes(ind, values)) + geom_boxplot() + ggtitle("Box Plot Of AIC Value For The Five Models") + xlab("ORDER") + ylab("AIC") + theme(plot.title = element_text(size = 10)) + theme(plot.title = element_text(size=15, hjust = 0.5))
+
+```
+
+Based on the single boxplot of all five models, it is apparent that Arima5 (ARIMA ORDER(0,1,1)) is the most suitable model as it exhibits the lowest AIC value.
+
+## Q3
+```{r,P2 Q3}
+
+europe_tb <- gapminder %>% filter(continent=="Europe") %>% group_by(country) %>% do(tidy(arima(.$lifeExp,order=c(0,1,1))))
+
+head(europe_tb)
+
+```
