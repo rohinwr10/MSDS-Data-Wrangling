@@ -1,0 +1,57 @@
+---
+title: "donga_ard224_Assignment8_additionalProblem"
+author: "Rohin Sri Kumar"
+date: "04-28-2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+library(stringr)
+library(readr)
+library(ggplot2)
+```
+
+```{r}
+#install.packages("igraph")
+library(igraph)
+set.seed(123)
+g <- erdos.renyi.game(20, 0.7, type = "gnp", directed = FALSE)
+
+```
+
+```{r}
+mean_degree <- mean(degree(g))
+
+```
+
+```{r}
+calculate_mean_degrees <- function(n) {
+  set.seed(123)
+  md <- numeric(n)
+  for (i in 20:n) {
+    g <- erdos.renyi.game(i, 0.7, type = "gnp", directed = FALSE)
+    md[i-19] <- mean(degree(g))
+  }
+  return(md)
+}
+
+```
+
+```{r}
+n_values <- c(30, 40, 50, 60, 70, 80, 90, 100)
+mean_degrees <- lapply(n_values, calculate_mean_degrees)
+names(mean_degrees) <- paste0("MD", n_values)
+
+```
+
+```{r}
+average_mean_degrees <- sapply(mean_degrees, mean)
+plot(n_values, average_mean_degrees, type = "o", xlab = "Number of vertices",
+     ylab = "Average mean degree", main = "Average mean degree vs. number of vertices")
+
+```
+The resulting plot should show a roughly linear relationship between the number of vertices and the average mean degree, with a slope close to 0.7. This is consistent with our expectation, since the probability of forming an edge is fixed at 0.7 for all graphs, so we would expect the mean degree to increase roughly linearly with the number of vertices.

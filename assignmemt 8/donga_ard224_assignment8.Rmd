@@ -1,0 +1,296 @@
+---
+title: "donga_ard224_assignment8"
+author: "ROHIN SRI KUMAR"
+date: "04/23/2023"
+output: html_document
+---
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gapminder)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(tidytext)
+library(textdata)
+library(rvest)
+library(httr)
+library(curl)
+library(jsonlite)
+library(modelr)
+library(ggbeeswarm)
+library(magrittr)
+library(igraph)
+library(sna)
+library(GGally)
+library(intergraph)
+library(choroplethr)
+library(choroplethrMaps)
+library(stringi)
+library(tidycensus)
+```
+
+# Problem 1
+
+# 1
+
+```{r}
+gap_nested <- gapminder %>% group_by(country, continent) %>% nest()
+head(gap_nested)
+```
+
+
+```{r}
+gap_lm <- gap_nested %>% mutate(model = map(data, ~lm(log10(gdpPercap) ~ year, data = .)))
+head(gap_lm)
+```
+
+# 2
+
+```{r}
+gap_lm_residual <- gap_lm %>% mutate(resid = map2(data, model, add_residuals)) %>% unnest(resid)
+head(gap_lm_residual)
+```
+
+
+```{r}
+gap_lm_residual %>% ggplot(aes(year, resid)) + geom_line(aes(group = country)) + geom_smooth(color="orange") + ggtitle("each country residuals")
+
+gap_lm_residual %>% ggplot(aes(year, resid)) + geom_line(aes(group = country)) + geom_smooth(color="orange") + facet_wrap(~continent) + ggtitle("each continents residuals")
+```
+
+# 3
+
+```{r}
+gap_lm_clean <- gap_lm %>% mutate(tidy = map(model, tidy))
+gap_lm_clean %>% mutate(tidy = map(tidy, ~filter(., term == "year"))) %>% unnest(tidy) %>% ggplot(aes(continent, estimate)) + geom_boxplot() + geom_beeswarm() + ggtitle ("continent wise slope coefficient value")
+```
+
+we can observer for the graph that europe has symmertric rate of growth where as in asia some have positive growth while others have negative growth of gdp.
+
+```{r}
+gap_lm_clean %>% mutate(tidy = map(tidy, ~filter(., term == "year"))) %>% unnest(tidy) %>% ggplot(aes(continent, statistic)) + geom_boxplot() + geom_beeswarm() + ggtitle("continent wise t-statistic")
+```
+
+if we observer the plot the african countries arent stable where as for the rest of the continents we can say that year is plays a major role for the model. 
+
+#4
+
+```{r}
+dec_gdp <- gap_lm_clean %>% mutate(tidy = map(tidy, ~filter(., term == "year"))) %>% unnest(tidy) %>% filter(estimate < 0 & p.value < 0.05) %>%
+  ungroup() %>% select(country, estimate, p.value)
+dec_gdp
+```
+
+the interpretation of the linear model fit for these countries is that as the time increases the gdppercaptia is decreasing.
+
+#5
+
+```{r}
+gapminder %>% filter(country %in% dec_gdp$country) %>% group_by(country, continent) %>% ggplot(aes(x = year, y = log10(gdpPercap), color = country)) + geom_line()
+```
+
+# Problem 2
+
+```{r}
+mtcrs <- mtcars %>% crossv_kfold(k = 8)
+mtcrs
+```
+
+```{r}
+mtnls <- mtcars %>% nls(mpg ~ k / wt + b, ., start = list(k = 1, b = 0))
+mtnls
+```
+
+```{r}
+mtlm <- mtcars %>% lm(mpg ~ wt, .)
+mtlm
+```
+
+```{r}
+mtcrsrsme_1 <- mtcrs %>% mutate(model = map(train, ~nls(mpg ~ k/wt+b, data = .$data, start = list(k = 1, b = 0))))
+mtcrsrsme_1%$% map2_dbl(model, test, rmse) %>%  mean()
+```
+
+
+```{r}
+mtcrsrsme_2 <- mtcrs %>% mutate(model = map(train, ~lm(mpg ~ wt, data = .)))
+mtcrsrsme_2 %$% map2_dbl(model, test, rmse) %>% mean()
+```
+
+***********We can conclude from rsme that the linear model fits better than non-linear model. 
+
+
+# Problem 3
+
+##1
+
+```{r}
+nodes <- read.csv("/Users/rohin/Desktop/sunbelt2021/Data files/Dataset1-Media-Example-NODES.csv", header=TRUE, as.is=TRUE)
+links <- read.csv("/Users/rohin/Desktop/sunbelt2021/Data files/Dataset1-Media-Example-EDGES.csv", header=TRUE, as.is=TRUE)
+network_graph <- graph_from_data_frame(d=links, vertices = nodes, directed = TRUE)
+network_graph
+```
+
+# 2
+
+```{r}
+network <- asNetwork(network_graph)
+network
+```
+
+# 3
+```{r warning=FALSE}
+ggnet2(network, size = "audience.size", color = "media.type", arrow.size=5, arrow.gap=0.025)
+```
+
+# 4
+
+```{r}
+mean(degree(network, gmod='digraph'))
+density_n_nw <- network %>% network.density()
+density_n_nw
+```
+
+# Problem 4
+
+```{r}
+url <- "https://www.worldometers.info/world-population/population-by-country/"
+pop_by_country <- url %>% read_html() %>% html_nodes("table") %>% html_table(fill = TRUE) %>% .[[1]]
+head(pop_by_country)
+```
+
+# 1
+
+```{r warning=FALSE}
+pop_by_country <- pop_by_country %>%
+  rename(`region` = `Country (or dependency)`, `value` = `Density (P/Km²)`) %>%
+  mutate(`region` = tolower(`region`),`Population (2020)` = as.integer( str_replace_all(.$`Population (2020)`, ",", "")),
+         `Yearly Change` = as.double(str_replace_all(.$`Yearly Change`, " %", "")),
+         `Net Change` = as.integer(str_replace_all(.$`Net Change`, ',', '')),
+         `value` = as.integer(str_replace_all(.$`value`, ',', '')),
+         `Land Area (Km²)` = as.integer(str_replace_all(.$`Land Area (Km²)`, ',', '')),
+         `Migrants (net)` = as.integer(str_replace_all(.$`Migrants (net)`, ',', '')),
+         `Fert. Rate` = as.double(`Fert. Rate`),
+         `Med. Age` = as.integer(`Med. Age`),
+         `Urban Pop %` = as.integer(str_replace_all(.$`Urban Pop %`, ' %', '')),
+         `World Share` = as.double(str_replace_all(.$`World Share`, ' %', ''))
+         )
+
+head(pop_by_country)
+
+```
+
+# 2
+
+```{r}
+pop_by_country_cmap <- pop_by_country %>%
+  mutate(region = replace(region, region == 'united states', 'united states of america')) %>%
+  mutate(region = replace(region, region == 'north macedonia', 'macedonia')) %>%
+  mutate(region = replace(region, region == 'serbia', 'republic of serbia')) %>%
+  mutate(region = replace(region, region == 'timor-leste', 'east timor')) %>%
+  mutate(region = replace(region, region == 'tanzania', 'united republic of tanzania')) %>%
+  mutate(region = replace(region, region == 'bahamas', 'the bahamas')) %>%
+  mutate(region = replace(region, region == 'côte d\'ivoire', 'ivory coast')) %>%
+  mutate(region = replace(region, region == 'dr congo', 'democratic republic of the congo')) %>%
+  mutate(region = replace(region, region == 'congo', 'republic of congo')) %>%
+  mutate(region = replace(region, region == 'czech republic (czechia)', 'czech republic')) %>%
+  mutate(region = replace(region, region == 'guinea-bissau', 'guinea bissau')) %>%
+  mutate(region = replace(region, region == 'czech republic (czechia)', 'czech republic'))
+```
+
+```{r warning=FALSE}
+country_choropleth(pop_by_country_cmap)
+```
+
+# 3
+
+```{r}
+data(country.regions)
+setdiff(country.regions$region, pop_by_country_cmap$region)
+```
+
+# 4
+
+```{r}
+sort(setdiff(pop_by_country_cmap$region, country.regions$region))
+```
+# We can see from the results that these countries do not overlap, thus the cleaning is appropriate, and the map is satisfactory.
+
+# Problem 5
+
+# 1
+```{r, Warning = FALSE}
+census_api_key("bd96ae2127452afc80ec5b87e4a652d99c7a2c57", install = TRUE, overwrite = TRUE)
+```
+
+```{r}
+median_income <- get_acs(geography = "tract", variables = c(medincome = "B19013_001"), year = 2020, state="NJ")
+
+median_rent <- get_acs(geography = "tract", variables = c(medrental = "B25064_001"), year=2020, state="NJ")
+
+combined_median <- median_rent %>% mutate(income=median_income$estimate) %>% select(-variable) %>% select(-moe) %>% rename(rent=estimate)
+
+head(combined_median)
+```
+
+
+```{r}
+combined_median %>% ggplot(aes(income, rent)) +geom_point() + ggtitle("rent vs income")
+```
+
+
+
+# We can see from the graph that the relationship between median income and rent is not linear.
+
+
+# 2
+
+```{r}
+combined_median_lm <- combined_median %>% lm(rent ~ income, .)
+summary(combined_median_lm)
+```
+
+
+```{r}
+combined_median %>% add_predictions(combined_median_lm, var = "pred") %>% ggplot(aes(income, rent)) + geom_point() + geom_line(aes(income, pred , color = 'model'))+ scale_color_manual(values=c('orange'))
+```
+
+
+
+```{r}
+better_combined_median <- combined_median %>% lm(rent ~ log10(income)+income, .)
+summary(better_combined_median)
+
+```
+
+```{r}
+combined_median %>% add_predictions(better_combined_median) %>% ggplot() + geom_point(aes(income, rent)) + geom_line(aes(income, pred), color = 'orange')
+```
+# In the second model, R2 has improved.
+
+# 4
+
+
+```{r}
+median_rent_11_15 <- get_acs(geography = "county", variables = c(medrental = "B25064_001"), year = 2020, state = "NJ")
+  
+median_rent_15_20 <- get_acs(geography = "county", variables = c(medrental = "B25064_001"), year = 2015, state = "NJ")
+
+```
+
+
+```{r}
+nj_rental_15 <- median_rent_11_15 %>%select(-variable) %>%select(-moe) %>%rename(rent_20 = estimate)
+nj_rental_20 <- median_rent_15_20 %>%select(-variable) %>%select(-moe) %>%rename(rent_15 = estimate)
+nj_rental_15_20 <- inner_join(nj_rental_20, nj_rental_15)
+
+nj_rental_15_20 <- nj_rental_15_20 %>% mutate(Percentage_Change = rent_20/rent_15)
+head(nj_rental_15_20)
+```
+
+
+```{r}
+nj_rental_15_20 %>% mutate(NAME = str_replace_all(NAME, " County, New Jersey", "") ) %>% ggplot(aes(x = reorder(NAME, Percentage_Change), y = Percentage_Change)) +
+  geom_bar(stat = "identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + xlab("County")+ylab("Percentage Change")+ggtitle ("percentage change of rent for each county in a newjersey")
+```
