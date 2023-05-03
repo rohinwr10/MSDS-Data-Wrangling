@@ -1,0 +1,55 @@
+---
+title: "assignment_1"
+author: "Rohin Sri Kumar"
+date: "31/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(babynames)
+```
+
+## 1Q) Plot the number of male and female babies named Taylor *by year*
+
+ans: Plotted the total males and females by overlaying them
+
+```{r 1Q)}
+names_ <- group_by(filter(babynames, name == "Taylor"))
+totalbabies <- select(names_, year, sex, n)
+totaltaylorbabies <- aggregate(totalbabies$n, by = list(year = totalbabies$year), FUN = sum)
+ggplot(data = totaltaylorbabies, mapping= aes(year, x)) + geom_point()
+
+```
+
+## 2Q)Is a 16 year old named Quinn more likely to be a boy or a girl?
+
+ans:16 years before 2017 is 2001. hence quinn is born in 2001.From the plot its more likely to be a boy
+
+```{r 2Q)}
+quinn=filter(babynames,name=="Quinn",year==2001)
+ggplot(data = quinn,aes(sex,n))+geom_col()
+```
+
+## 3Q)Is a 2 year old named Quinn more likely to be a boy or a girl?
+
+ans:2 years before 2017 is 2015. hence quinn is born in 2015.From the plot its more likely to be a girl
+
+```{r 3Q)}
+quinn2=filter(babynames,name=="Quinn",year==2015)
+ggplot((data=quinn2),aes(sex,n))+geom_col()
+```
+
+## 4Q) What is your best guess as to how old a woman named Susan is?
+
+ans: The more number of susans are from the year 1955. Now the considering the current year as 2017. The age of susan would be 62 years.(2017-1955)
+
+```{r 4Q)}
+sussan=filter(babynames,name=="Susan")
+ggplot(data=sussan,aes(year,n))+geom_col()+geom_text(aes(label= year), check_overlap = FALSE, color= "black", size=2.5)
+
+```
