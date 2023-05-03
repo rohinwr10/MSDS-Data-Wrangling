@@ -1,0 +1,126 @@
+---
+title: "assignment 6"
+author: "Rohin Donga"
+date: "04/08/2023"
+output: html_document
+---
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidytext)
+library(gutenbergr)
+library(NLP)
+library(tm) 
+library(tidyverse)
+library(topicmodels)
+library(reshape)
+library(broom)
+```
+
+## Q 1
+
+# 1
+
+```{r}
+
+gutenberg_metadata %>% filter(str_detect(title,"Treasure Island|Kidnapped"))%>% filter(author == "Stevenson, Robert Louis") %>% select(title,gutenberg_id)
+ 
+```
+# 2
+```{r}
+t_island <-  gutenberg_download(c(120), mirror='https://gutenberg.pglaf.org/')
+kd <- gutenberg_download(c(421), mirror='https://gutenberg.pglaf.org/')
+```
+
+
+# 3
+```{r}
+
+t_island %>% unnest_tokens(words, text) %>% anti_join(stop_words, by = c("words" = "word")) %>% group_by(words) %>% summarize(count = n()) %>% arrange(-count) %>% head(n = 10)
+
+kd %>% unnest_tokens(words, text) %>% anti_join(stop_words, by = c("words" = "word")) %>% group_by(words) %>% summarize(count = n()) %>% arrange(-count) %>% head(n = 10)
+
+
+```
+
+# 4 (i)
+```{r}
+t_island_count <- t_island %>% unnest_tokens(word, text) %>% anti_join(stop_words) %>% count(word) %>% mutate(proportion = n/sum(n)) %>% mutate(title = "Treasure Island") %>% select(word, title, proportion)
+
+kd_count <- kd %>% unnest_tokens(word, text) %>% anti_join(stop_words) %>% count(word) %>% mutate(proportion = n/sum(n)) %>% mutate(title = "Kidnapped") %>% select(word, title, proportion)
+
+t_kd_count <- bind_rows(t_island_count, kd_count) %>% pivot_wider(names_from = "title", values_from = "proportion")
+
+ggplot(t_kd_count, aes(x = `Treasure Island`, 
+y = `Kidnapped`)) +
+geom_abline(color = "blue", lty = 2, 
+lwd=2) + geom_point(color="green") + geom_text(aes(label = word),check_overlap = TRUE) + scale_x_log10() + scale_y_log10()
+```
+```{r}
+t_kd_count %>% filter(!(`Treasure Island`=="NA"|`Kidnapped`=="NA")) %>% select(,2:3) %>%
+cor()
+```
+
+
+# 4 (ii),(iii),(iv)
+```{r}
+high_frequency_words_in_kd_not_in_t_island <- t_kd_count %>% filter((`Treasure Island` < 1e-04) & (`Kidnapped` > 1e-03)) %>% head(2)
+
+high_frequency_words_not_in_kd_but_in_t_island <-t_kd_count %>% filter((`Treasure Island` > 1e-03) & (`Kidnapped` < 1e-04)) %>% head(2)
+
+high_frequency_words_in_kd_and_in_t_island <-t_kd_count %>% filter((`Treasure Island` > 1e-03) & (`Kidnapped` > 1e-03)) %>% head(2)
+
+
+high_frequency_words_in_kd_not_in_t_island
+high_frequency_words_not_in_kd_but_in_t_island
+high_frequency_words_in_kd_and_in_t_island
+```
+
+
+# 5
+
+```{r}
+t_island %>% unnest_tokens(bigram, text, token = "ngrams", n = 2) %>% filter(bigram != "NA") %>% separate(bigram, c("word1", "word2"), sep = " ") %>% filter(!word1 %in% stop_words$word) %>% filter(!word2 %in% stop_words$word) %>% unite(bigram, word1, word2, sep = " ") %>% group_by(bigram) %>% summarize(count = n()) %>% arrange(-count) %>% head(n = 10)
+```
+
+# 6
+```{r}
+
+t1 <- t_island %>% mutate(title = "Treasure Island")
+t2 <- kd %>% mutate(title = "Kidnapped")
+t1_t2_lines <- bind_rows(t1, t2) %>% group_by(gutenberg_id) %>%
+  mutate(linenumber = row_number(), chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]",ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text) %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(title, index = linenumber %/% 100, sentiment) %>% 
+  spread(sentiment, n, fill = 0) %>% 
+  mutate(sentiment = positive - negative) 
+ggplot(t1_t2_lines,aes(index, sentiment, fill = title)) + geom_bar(alpha = 1, stat = "identity", show.legend = FALSE) + facet_wrap(~title, ncol = 3, scales = "free_x") + theme(legend.position = "top") + geom_smooth()
+
+```
+
+## Q 2
+
+```{r}
+data("AssociatedPress", package = "topicmodels")
+ap_lda <- LDA(AssociatedPress, k = 3, method = "Gibbs")
+topics <- tidy(ap_lda)
+
+topic_1 <- topics %>% filter(topic == 1) %>% arrange(desc(beta))
+topic_2 <- topics %>% filter(topic == 2) %>% arrange(desc(beta))
+topic_3 <- topics %>% filter(topic == 3) %>% arrange(desc(beta))
+
+topic_1%>%head(10)
+topic_2%>%head(10)
+topic_3%>%head(10)
+```
+Topic 1 might be related to some sort of CRIME RECORDS.
+Topic 2 might be realted to some sort of FINANCIAL RECORDS of companies.
+Topic 3 might be related to some sort of Geo-political RECORDS.
+
+uncertain documents
+```{r}
+un_doc <- ap_lda %>% tidy(matrix = "gamma") %>% group_by(document) %>% filter(gamma <= 0.35)
+un_doc
+```
