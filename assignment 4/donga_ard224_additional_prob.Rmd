@@ -1,0 +1,91 @@
+---
+title: "donga_ard224_additional_prob_hw4"
+author: "Rohin Sri Kumar"
+date: "2023-04-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+library(stringr)
+library(readr)
+library(ggplot2)
+```
+
+```{r}
+file_path <- "/Users/rohin/Desktop/height.txt"
+my_data <- read.table(file_path, header = TRUE, sep = "\t")
+head(my_data)
+```
+
+
+```{r}
+# Define a function to clean the height variable
+clean_height <- function(height) {
+  # Remove any non-numeric characters from the height string
+  height <- str_replace_all(height, "[^0-9]", "")
+  
+  # Convert the height to inches (assuming it is in feet and inches format)
+  if (nchar(height) > 1) {
+    feet <- str_sub(height, end = -2)
+    inches <- str_sub(height, start = -1)
+    height <- as.numeric(feet) * 12 + as.numeric(inches)
+  } else {
+    height <- as.numeric(height)
+  }
+  
+  return(height)
+}
+
+# Apply the clean_height function to the height column in my_data
+my_data$height <- sapply(my_data$height, clean_height)
+
+# Print the first few rows of the cleaned data frame
+head(my_data)
+```
+
+```{r}
+# Count the number of non-missing values of height for men and women
+n_Female <- sum(!is.na(my_data$height) & my_data$sex == "Female")
+n_Male <- sum(!is.na(my_data$height) & my_data$sex == "Male")
+
+# Print the results
+cat("Number of non-missing heights for women:", n_Female, "\n")
+cat("Number of non-missing heights for men:", n_Male, "\n")
+
+```
+
+```{r}
+# Read in the data from the .txt file
+file_path <- "/Users/rohin/Desktop/height.txt"
+my_data <- read.table(file_path, header = TRUE, sep = "\t")
+
+clean_height <- function(x) {
+  x <- gsub('"', '', x) # remove quotes
+  x <- gsub("ft", "*", x) # replace "ft" with *
+  x <- gsub("in", "", x) # remove "in"
+  if (grepl("\\*", x)) { # if * is present (i.e. height is in feet and inches)
+    x <- strsplit(x, "\\*")[[1]]
+    x <- as.numeric(x[1])*12 + as.numeric(x[2]) # convert to inches
+  } else {
+    x <- as.numeric(x) # already in inches
+  }
+  return(x)
+}
+my_data$height <- sapply(my_data$height, clean_height)
+
+# Create a plot of height by sex
+plot_data <- na.omit(my_data)
+ggplot(plot_data, aes(x = height, color = sex, fill = sex)) +
+  geom_density(alpha = 0.5) +
+  scale_color_manual(values = c("#FF69B4", "#4169E1"), labels = c("Women", "Men")) +
+  scale_fill_manual(values = c("#FF69B4", "#4169E1"), labels = c("Women", "Men")) +
+  labs(x = "Height (inches)", y = "Density", title = "Distribution of Height by Sex") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```

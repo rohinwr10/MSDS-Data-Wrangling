@@ -1,0 +1,50 @@
+---
+title: "assignment4"
+author: "Rohin Sri Kumar"
+date: "03/25/2023"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup,echo = TRUE,include=FALSE}
+library(tidyverse)
+library(Lahman)
+library(gapminder)
+```
+
+
+## Q1
+
+```{r,error=TRUE}
+mtcars.lm <- lm(mpg ~ disp, data = mtcars)
+residuals.get <- function(objec, n=5){
+  res_id <- objec$residuals
+  ans_resid <- res_id[order(abs(res_id),decreasing = TRUE)]
+  if (n > nrow(mtcars)) stop("n is larger than the number of residuals")
+  if(n<=nrow(mtcars)){
+    head(ans_resid,n)
+  }
+}
+residuals.get(mtcars.lm)
+residuals.get(mtcars.lm, n=6)
+residuals.get(mtcars.lm, n=40)
+
+```
+
+
+## Q2
+
+
+```{r}
+g.split <- gapminder %>% split(.$country)
+g.lm <- g.split %>% map(~ lm(lifeExp~log10(gdpPercap),weights = pop,data =.))
+r.squared.list <- map(g.lm,~summary(.x)$r.squared)
+x <- stack(r.squared.list)
+r.square <- unique(inner_join(x, gapminder, by = c("ind" = "country")) %>% select(values, ind, continent))
+r.square %>% ggplot(aes(continent,values,fill = continent))+geom_boxplot()+ggtitle("boxplots of R-squared by continent")+theme(plot.title = element_text(size=25, hjust = 0.5))
+```
+
+
+
+
