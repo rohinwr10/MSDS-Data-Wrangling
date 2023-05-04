@@ -1,0 +1,57 @@
+---
+title: "classexercise1"
+author: "Rohin Sri Kumar"
+date: "05-01-2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+library(gapminder)
+library(magrittr)
+library(tidyr)
+library(dplyr)
+```
+
+```{r}
+gapminder_subset <- subset(gapminder, country %in% c("Germany", "France"))
+```
+
+```{r}
+gapminder_subset <- gapminder %>%
+  subset(country %in% c("Germany", "France")) %>% 
+  select(country, year, gdpPercap)
+```
+
+```{r}
+# pivot the gapminder_subset data frame to wide format
+gapminder_wide <- pivot_wider(gapminder_subset, names_from = "year", values_from = "gdpPercap")
+
+# print the resulting data frame
+gapminder_wide
+```
+
+```{r}
+gapminder_wide <- pivot_wider(gapminder_subset, names_from = "year", values_from = "gdpPercap")
+
+# store the resulting data frame in gapminder_wide
+gapminder_wide <- as.data.frame(gapminder_wide)
+```
+
+```{r}
+gapminder_long <- pivot_longer(gapminder_wide, cols = -country, names_to = "year", values_to = "gdpPercap")
+
+# print the resulting data frame
+gapminder_long
+```
